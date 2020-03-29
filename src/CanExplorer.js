@@ -1,49 +1,48 @@
-import React, { Component } from 'react';
-import Moment from 'moment';
-import PropTypes from 'prop-types';
-import cx from 'classnames';
-import { createWriteStream } from 'streamsaver';
-import Panda from '@commaai/pandajs';
-import CommaAuth from '@commaai/my-comma-auth';
-import { raw as RawDataApi, drives as DrivesApi } from '@commaai/comma-api';
-import { timeout, interval } from 'thyming';
+import React, { Component } from "react";
+import Moment from "moment";
+import PropTypes from "prop-types";
+import cx from "classnames";
+import { createWriteStream } from "streamsaver";
+import Panda from "@commaai/pandajs";
+import CommaAuth from "@commaai/my-comma-auth";
+import { raw as RawDataApi, drives as DrivesApi } from "@commaai/comma-api";
+import { timeout, interval } from "thyming";
 import {
   USE_UNLOGGER,
   PART_SEGMENT_LENGTH,
   STREAMING_WINDOW,
   GITHUB_AUTH_TOKEN_KEY
-} from './config';
-import * as GithubAuth from './api/github-auth';
+} from "./config";
+import * as GithubAuth from "./api/github-auth";
 
-import DBC from './models/can/dbc';
-import Meta from './components/Meta';
-import Explorer from './components/Explorer';
-import OnboardingModal from './components/Modals/OnboardingModal';
-import SaveDbcModal from './components/SaveDbcModal';
-import LoadDbcModal from './components/LoadDbcModal';
-import debounce from './utils/debounce';
-import EditMessageModal from './components/EditMessageModal';
-import LoadingBar from './components/LoadingBar';
+import DBC from "./models/can/dbc";
+import Meta from "./components/Meta";
+import Explorer from "./components/Explorer";
+import OnboardingModal from "./components/Modals/OnboardingModal";
+import SaveDbcModal from "./components/SaveDbcModal";
+import LoadDbcModal from "./components/LoadDbcModal";
+import debounce from "./utils/debounce";
+import EditMessageModal from "./components/EditMessageModal";
+import LoadingBar from "./components/LoadingBar";
 import {
   persistDbc,
   fetchPersistedDbc,
   unpersistGithubAuthToken
-} from './api/localstorage';
-import OpenDbc from './api/OpenDbc';
-import UnloggerClient from './api/unlogger';
-import * as ObjectUtils from './utils/object';
-import { hash } from './utils/string';
-import { modifyQueryParameters } from './utils/url';
-import DbcUtils from './utils/dbc';
-import { demoLogUrls, demoRoute } from './demo';
+} from "./api/localstorage";
+import OpenDbc from "./api/OpenDbc";
+import UnloggerClient from "./api/unlogger";
+import * as ObjectUtils from "./utils/object";
+import { hash } from "./utils/string";
+import { modifyQueryParameters } from "./utils/url";
+import DbcUtils from "./utils/dbc";
+import { demoLogUrls, demoRoute } from "./demo";
 
-const RLogDownloader = require('./workers/rlog-downloader.worker');
-const LogCSVDownloader = require('./workers/dbc-csv-downloader.worker');
-const MessageParser = require('./workers/message-parser.worker');
-const CanStreamerWorker = require('./workers/CanStreamerWorker.worker');
+const RLogDownloader = require("./workers/rlog-downloader.worker");
+const LogCSVDownloader = require("./workers/dbc-csv-downloader.worker");
+const MessageParser = require("./workers/message-parser.worker");
+const CanStreamerWorker = require("./workers/CanStreamerWorker.worker");
 
 const dataCache = {};
-
 
 export default class CanExplorer extends Component {
   constructor(props) {
@@ -71,7 +70,7 @@ export default class CanExplorer extends Component {
       editMessageModalMessage: null,
       dbc: props.dbc ? props.dbc : new DBC(),
       dbcText: props.dbc ? props.dbc.text() : new DBC().text(),
-      dbcFilename: props.dbcFilename ? props.dbcFilename : 'New_DBC',
+      dbcFilename: props.dbcFilename ? props.dbcFilename : "New_DBC",
       dbcLastSaved: null,
       seekTime: props.seekTime || 0,
       seekIndex: 0,
@@ -81,6 +80,7 @@ export default class CanExplorer extends Component {
       spawnWorkerHash: null,
       attemptingPandaConnection: false,
       pandaNoDeviceSelected: false,
+      loadingCSVData: false,
       live: false,
       isGithubAuthenticated:
         props.githubAuthToken !== null && props.githubAuthToken !== undefined,
@@ -113,6 +113,7 @@ export default class CanExplorer extends Component {
     this.initCanData = this.initCanData.bind(this);
     this.updateSelectedMessages = this.updateSelectedMessages.bind(this);
     this.handlePandaConnect = this.handlePandaConnect.bind(this);
+    this.handleLoadedCSV = this.handleLoadedCSV.bind(this);
     this.processStreamedCanMessages = this.processStreamedCanMessages.bind(
       this
     );
@@ -135,16 +136,21 @@ export default class CanExplorer extends Component {
       if (this.loadMessagesFromCacheRunning || loadedParts.length < 4) {
         return;
       }
-      loadedParts.forEach((part) => {
+      loadedParts.forEach(part => {
         if (part >= currentParts[0] && part <= currentParts[1]) {
           return;
         }
         if (Date.now() - dataCache[part].lastUsed > 3 * 60 * 1000) {
-          console.log('Decaching part', part);
-          loadedParts = loadedParts.filter((p) => p !== part);
-          this.setState({
-            loadedParts
-          }, () => { delete dataCache[part]; });
+          console.log("Decaching part", part);
+          loadedParts = loadedParts.filter(p => p !== part);
+          this.setState(
+            {
+              loadedParts
+            },
+            () => {
+              delete dataCache[part];
+            }
+          );
         }
       });
     }, 10000);
@@ -158,21 +164,24 @@ export default class CanExplorer extends Component {
       const logUrls = demoLogUrls;
       const route = demoRoute;
 
-      this.setState({
-        logUrls,
-        route,
-        currentParts: [0, 2],
-        currentPart: 0
-      }, this.initCanData);
+      this.setState(
+        {
+          logUrls,
+          route,
+          currentParts: [0, 2],
+          currentPart: 0
+        },
+        this.initCanData
+      );
     } else if (
-      this.props.max
-      && this.props.url
-      && !this.props.exp
-      && !this.props.sig
+      this.props.max &&
+      this.props.url &&
+      !this.props.exp &&
+      !this.props.sig
     ) {
       // legacy share? maybe dead code
       const { max, url } = this.props;
-      const startTime = Moment(name, 'YYYY-MM-DD--H-m-s');
+      const startTime = Moment(name, "YYYY-MM-DD--H-m-s");
 
       const route = {
         fullname: `${dongleId}|${name}`,
@@ -195,7 +204,7 @@ export default class CanExplorer extends Component {
       if (this.props.url) {
         urlPromise = Promise.resolve(this.props.url);
       } else {
-        urlPromise = DrivesApi.getRouteInfo(routeName).then((route) => route.url);
+        urlPromise = DrivesApi.getRouteInfo(routeName).then(route => route.url);
       }
 
       if (this.props.sig && this.props.exp) {
@@ -207,13 +216,13 @@ export default class CanExplorer extends Component {
         logUrlsPromise = RawDataApi.getLogUrls(routeName);
       }
       Promise.all([urlPromise, logUrlsPromise])
-        .then((initData) => {
+        .then(initData => {
           const [url, logUrls] = initData;
           const newState = {
             route: {
               fullname: routeName,
               proclog: logUrls.length - 1,
-              start_time: Moment(name, 'YYYY-MM-DD--H-m-s'),
+              start_time: Moment(name, "YYYY-MM-DD--H-m-s"),
               url
             },
             currentParts: [
@@ -224,19 +233,21 @@ export default class CanExplorer extends Component {
           };
           this.setState(newState, this.initCanData);
 
-          DrivesApi.getShareSignature(routeName).then((shareSignature) => this.setState({
-            shareUrl: modifyQueryParameters({
-              add: {
-                exp: shareSignature.exp,
-                sig: shareSignature.sig,
-                max: logUrls.length - 1,
-                url
-              },
-              remove: [GITHUB_AUTH_TOKEN_KEY]
+          DrivesApi.getShareSignature(routeName).then(shareSignature =>
+            this.setState({
+              shareUrl: modifyQueryParameters({
+                add: {
+                  exp: shareSignature.exp,
+                  sig: shareSignature.sig,
+                  max: logUrls.length - 1,
+                  url
+                },
+                remove: [GITHUB_AUTH_TOKEN_KEY]
+              })
             })
-          }));
+          );
         })
-        .catch((err) => {
+        .catch(err => {
           console.error(err);
           this.showOnboarding();
         });
@@ -300,10 +311,10 @@ export default class CanExplorer extends Component {
   // }
 
   downloadLogAsCSV() {
-    console.log('downloadLogAsCSV:start');
+    console.log("downloadLogAsCSV:start");
     const { dbcFilename } = this.state;
     const fileStream = createWriteStream(
-      `${dbcFilename.replace(/\.dbc/g, '-')}${+new Date()}.csv`
+      `${dbcFilename.replace(/\.dbc/g, "-")}${+new Date()}.csv`
     );
     const writer = fileStream.getWriter();
     const encoder = new TextEncoder();
@@ -316,11 +327,11 @@ export default class CanExplorer extends Component {
     function dataHandler(e) {
       const { logData, shouldClose, progress } = e.data;
       if (shouldClose) {
-        console.log('downloadLogAsCSV:close');
+        console.log("downloadLogAsCSV:close");
         writer.close();
         return;
       }
-      console.log('CSV export progress:', progress);
+      console.log("CSV export progress:", progress);
       const uint8array = encoder.encode(`${logData}\n`);
       writer.write(uint8array);
     }
@@ -340,7 +351,7 @@ export default class CanExplorer extends Component {
     worker.onmessage = handler;
 
     worker.postMessage({
-      data: Object.keys(this.state.messages).map((sourceId) => {
+      data: Object.keys(this.state.messages).map(sourceId => {
         const source = this.state.messages[sourceId];
         return {
           id: source.id,
@@ -397,13 +408,13 @@ export default class CanExplorer extends Component {
     return;
     const currentWorkers = { ...this.state.currentWorkers };
     const { worker, part } = currentWorkers[workerHash];
-    const loadingParts = this.state.loadingParts.filter((p) => p !== part);
-    const loadedParts = this.state.loadedParts.filter((p) => p !== part);
+    const loadingParts = this.state.loadingParts.filter(p => p !== part);
+    const loadedParts = this.state.loadedParts.filter(p => p !== part);
     delete currentWorkers[workerHash];
 
-    console.log('Stoping worker', workerHash, 'for part', part);
+    console.log("Stoping worker", workerHash, "for part", part);
     worker.postMessage({
-      action: 'terminate'
+      action: "terminate"
     });
 
     this.setState({
@@ -415,7 +426,7 @@ export default class CanExplorer extends Component {
 
   spawnWorker(options) {
     let { currentParts, currentWorkers, loadingParts } = this.state;
-    console.log('Checking worker for', currentParts);
+    console.log("Checking worker for", currentParts);
     if (!this.state.isLoading) {
       this.setState({ isLoading: true });
     }
@@ -444,11 +455,11 @@ export default class CanExplorer extends Component {
       }
     }
     if (part === -1) {
-      console.log('Loading complete');
+      console.log("Loading complete");
       this.setState({ isLoading: false });
       return;
     }
-    console.log('Starting worker for part', part);
+    console.log("Starting worker for part", part);
     // options is object of {part, prevMsgEntries, spawnWorkerHash, prepend}
     options = options || {};
     let { prevMsgEntries } = options;
@@ -467,7 +478,7 @@ export default class CanExplorer extends Component {
       // we have previous messages loaded
       const { messages } = this.state;
       prevMsgEntries = {};
-      Object.keys(messages).forEach((key) => {
+      Object.keys(messages).forEach(key => {
         const { entries } = messages[key];
         prevMsgEntries[key] = entries[entries.length - 1];
       });
@@ -489,9 +500,9 @@ export default class CanExplorer extends Component {
       loadingParts
     });
 
-    worker.onmessage = (e) => {
+    worker.onmessage = e => {
       if (this.state.currentWorkers[spawnWorkerHash] === undefined) {
-        console.log('Worker was canceled');
+        console.log("Worker was canceled");
         return;
       }
 
@@ -501,7 +512,7 @@ export default class CanExplorer extends Component {
         newThumbnails,
         isFinished,
         routeInitTime,
-        firstFrameTime,
+        firstFrameTime
       } = e.data;
       if (maxByteStateChangeCount > this.state.maxByteStateChangeCount) {
         this.setState({ maxByteStateChangeCount });
@@ -529,7 +540,7 @@ export default class CanExplorer extends Component {
       // const thumbnails = this.mergeThumbnails(newThumbnails);
 
       if (isFinished) {
-        const loadingParts = this.state.loadingParts.filter((p) => p !== part);
+        const loadingParts = this.state.loadingParts.filter(p => p !== part);
         const loadedParts = [part, ...this.state.loadedParts];
 
         this.setState(
@@ -574,6 +585,11 @@ export default class CanExplorer extends Component {
   }
 
   addAndRehydrateMessages(newMessages, options) {
+    console.log(
+      `[CanExplorer::addAndRehydrateMessages], newMessages: `,
+      JSON.stringify(newMessages)
+    );
+
     // Adds new message entries to messages state
     // and "rehydrates" ES6 classes (message frame)
     // lost from JSON serialization in webworker data cloning.
@@ -582,7 +598,7 @@ export default class CanExplorer extends Component {
 
     const messages = { ...this.state.messages };
 
-    Object.keys(newMessages).forEach((key) => {
+    Object.keys(newMessages).forEach(key => {
       // add message
       if (options.replace !== true && key in messages) {
         // should merge here instead of concat
@@ -615,7 +631,8 @@ export default class CanExplorer extends Component {
             messages[key].entries[i] = newMsgEntries[newMsgIndex++];
           }
         }
-        messages[key].byteStateChangeCounts = newMessages[key].byteStateChangeCounts;
+        messages[key].byteStateChangeCounts =
+          newMessages[key].byteStateChangeCounts;
       } else {
         messages[key] = newMessages[key];
         messages[key].frame = this.state.dbc.getMessageFrame(
@@ -631,7 +648,7 @@ export default class CanExplorer extends Component {
       maxByteStateChangeCount
     });
 
-    Object.keys(messages).forEach((key) => {
+    Object.keys(messages).forEach(key => {
       // console.log(key);
       messages[key] = DbcUtils.setMessageByteColors(
         messages[key],
@@ -647,7 +664,7 @@ export default class CanExplorer extends Component {
     const entry = await this.getParseSegment(part);
     if (!entry) {
       // first chunk of data returned from this segment
-      Object.keys(newMessages).forEach((key) => {
+      Object.keys(newMessages).forEach(key => {
         newMessages[key] = this.parseMessageEntry(newMessages[key], dbc);
       });
       dataCache[part] = {
@@ -667,7 +684,7 @@ export default class CanExplorer extends Component {
     entry.lastUsed = Date.now();
 
     // data is always append only, and always per segment
-    Object.keys(newMessages).forEach((key) => {
+    Object.keys(newMessages).forEach(key => {
       let msgs = newMessages[key];
       if (!dataCache[part].messages[key]) {
         msgs = this.parseMessageEntry(msgs, dbc);
@@ -681,7 +698,9 @@ export default class CanExplorer extends Component {
       }
       newMessages[key] = msgs;
     });
-    dataCache[part].thumbnails = dataCache[part].thumbnails.concat(newThumbnails);
+    dataCache[part].thumbnails = dataCache[part].thumbnails.concat(
+      newThumbnails
+    );
 
     if (part >= currentParts[0] && part <= currentParts[1]) {
       this.setState({
@@ -694,7 +713,10 @@ export default class CanExplorer extends Component {
     // create a new messages object for state
     if (this.loadMessagesFromCacheRunning) {
       if (!this.loadMessagesFromCacheTimer) {
-        this.loadMessagesFromCacheTimer = timeout(() => this.loadMessagesFromCache(), 10);
+        this.loadMessagesFromCacheTimer = timeout(
+          () => this.loadMessagesFromCache(),
+          10
+        );
       }
       return;
     }
@@ -727,7 +749,7 @@ export default class CanExplorer extends Component {
         if (!isCanceled) {
           isCanceled = true;
           this.loadMessagesFromCacheRunning = false;
-          console.log('Canceling!');
+          console.log("Canceling!");
           this.loadMessagesFromCache();
         }
         return;
@@ -735,21 +757,30 @@ export default class CanExplorer extends Component {
       if (cacheEntry) {
         const newMessages = cacheEntry.messages;
         thumbnails = thumbnails.concat(cacheEntry.thumbnails);
-        Object.keys(newMessages).forEach((key) => {
+        Object.keys(newMessages).forEach(key => {
           if (!messages[key]) {
             messages[key] = { ...newMessages[key] };
           } else {
             const newMessageEntries = newMessages[key].entries;
             const messageEntries = messages[key].entries;
-            if (newMessageEntries.length
-              && newMessageEntries[0].relTime < messageEntries[messageEntries.length - 1].relTime) {
-              console.error('Found out of order messages', newMessageEntries[0], messageEntries[messageEntries.length - 1]);
+            if (
+              newMessageEntries.length &&
+              newMessageEntries[0].relTime <
+                messageEntries[messageEntries.length - 1].relTime
+            ) {
+              console.error(
+                "Found out of order messages",
+                newMessageEntries[0],
+                messageEntries[messageEntries.length - 1]
+              );
             }
-            messages[key].entries = messages[key].entries.concat(newMessages[key].entries);
+            messages[key].entries = messages[key].entries.concat(
+              newMessages[key].entries
+            );
           }
         });
       }
-      console.log('Done with', performance.now() - start);
+      console.log("Done with", performance.now() - start);
       start = performance.now();
     }, Promise.resolve());
 
@@ -757,17 +788,15 @@ export default class CanExplorer extends Component {
       return;
     }
 
-    Object.keys(this.state.messages).forEach((key) => {
+    Object.keys(this.state.messages).forEach(key => {
       if (!messages[key]) {
         messages[key] = this.state.messages[key];
         messages[key].entries = [];
       }
     });
 
-    Object.keys(messages).forEach((key) => {
-      messages[key].frame = dbc.getMessageFrame(
-        messages[key].address
-      );
+    Object.keys(messages).forEach(key => {
+      messages[key].frame = dbc.getMessageFrame(messages[key].address);
     });
 
     const maxByteStateChangeCount = DbcUtils.findMaxByteStateChangeCount(
@@ -778,7 +807,7 @@ export default class CanExplorer extends Component {
       maxByteStateChangeCount
     });
 
-    Object.keys(messages).forEach((key) => {
+    Object.keys(messages).forEach(key => {
       // console.log(key);
       messages[key] = DbcUtils.setMessageByteColors(
         messages[key],
@@ -786,7 +815,7 @@ export default class CanExplorer extends Component {
       );
     });
 
-    console.log('Done with old messages', performance.now() - start);
+    console.log("Done with old messages", performance.now() - start);
 
     this.setState({ messages, thumbnails });
 
@@ -821,7 +850,7 @@ export default class CanExplorer extends Component {
     //   return await this.reparseMessages(messages);
     // }
 
-    Object.keys(messages).forEach((key) => {
+    Object.keys(messages).forEach(key => {
       if (messages[key].lastUpdated >= lastUpdated) {
         return;
       }
@@ -829,7 +858,7 @@ export default class CanExplorer extends Component {
     });
 
     if (Object.keys(reparseMessages).length) {
-      console.log('Reparsing messages!', Object.keys(reparseMessages).length);
+      console.log("Reparsing messages!", Object.keys(reparseMessages).length);
       reparseMessages = await this.reparseMessages(reparseMessages);
     }
 
@@ -843,14 +872,19 @@ export default class CanExplorer extends Component {
     const end = performance.now();
     if (end - start > 200) {
       // warn about anything over 200ms
-      console.warn('getParseSegment took', part, end - start, Object.keys(messages).length);
+      console.warn(
+        "getParseSegment took",
+        part,
+        end - start,
+        Object.keys(messages).length
+      );
     }
 
     return dataCache[part];
   }
 
   decacheMessageId(messageId) {
-    Object.keys(dataCache).forEach((part) => {
+    Object.keys(dataCache).forEach(part => {
       if (dataCache[part].messages[messageId]) {
         dataCache[part].messages[messageId].lastUpdated = 0;
       }
@@ -862,17 +896,19 @@ export default class CanExplorer extends Component {
     const { dbc } = this.state;
     dbc.lastUpdated = dbc.lastUpdated || Date.now();
 
-    Object.keys(messages).forEach((key) => {
+    Object.keys(messages).forEach(key => {
       messages[key].frame = dbc.getMessageFrame(messages[key].address);
     });
 
     return new Promise((resolve, reject) => {
       const worker = new MessageParser();
-      worker.onmessage = (e) => {
+      worker.onmessage = e => {
         const newMessages = e.data.messages;
-        Object.keys(newMessages).forEach((key) => {
+        Object.keys(newMessages).forEach(key => {
           newMessages[key].lastUpdated = dbc.lastUpdated;
-          newMessages[key].frame = dbc.getMessageFrame(newMessages[key].address);
+          newMessages[key].frame = dbc.getMessageFrame(
+            newMessages[key].address
+          );
         });
         resolve(newMessages);
       };
@@ -889,16 +925,14 @@ export default class CanExplorer extends Component {
     const entry = _entry;
     dbc.lastUpdated = dbc.lastUpdated || Date.now();
     entry.lastUpdated = dbc.lastUpdated;
-    entry.frame = dbc.getMessageFrame(
-      entry.address
-    );
+    entry.frame = dbc.getMessageFrame(entry.address);
 
     let prevMsgEntry = lastMsg || null;
     const byteStateChangeCounts = [];
     // entry.messages[id].byteStateChangeCounts = byteStateChangeCounts.map(
     //   (count, idx) => entry.messages[id].byteStateChangeCounts[idx] + count
     // );
-    entry.entries = entry.entries.map((message) => {
+    entry.entries = entry.entries.map(message => {
       if (message.hexData) {
         prevMsgEntry = DbcUtils.reparseMessage(dbc, message, prevMsgEntry);
       } else {
@@ -934,11 +968,11 @@ export default class CanExplorer extends Component {
       showEditMessageModal
     } = this.state;
     return (
-      showOnboarding
-      || showLoadDbc
-      || showSaveDbc
-      || showAddSignal
-      || showEditMessageModal
+      showOnboarding ||
+      showLoadDbc ||
+      showSaveDbc ||
+      showAddSignal ||
+      showEditMessageModal
     );
   }
 
@@ -978,7 +1012,7 @@ export default class CanExplorer extends Component {
     if (route) {
       persistDbc(route.fullname, { dbcFilename, dbc });
     } else {
-      persistDbc('live', { dbcFilename, dbc });
+      persistDbc("live", { dbcFilename, dbc });
     }
 
     this.loadMessagesFromCache();
@@ -1005,9 +1039,7 @@ export default class CanExplorer extends Component {
   }, 500);
 
   onPartChange(part) {
-    let {
-      currentParts, currentPart, canFrameOffset, route
-    } = this.state;
+    let { currentParts, currentPart, canFrameOffset, route } = this.state;
     if (canFrameOffset === -1 || part === currentPart) {
       return;
     }
@@ -1025,9 +1057,9 @@ export default class CanExplorer extends Component {
     currentPart = part;
 
     if (
-      currentPart !== this.state.currentPart
-      || currentParts[0] !== this.state.currentParts[0]
-      || currentParts[1] !== this.state.currentParts[1]
+      currentPart !== this.state.currentPart ||
+      currentParts[0] !== this.state.currentParts[0] ||
+      currentParts[1] !== this.state.currentParts[1]
     ) {
       // update state then load new parts
       this.setState({ currentParts, currentPart }, this.partChangeDebounced);
@@ -1053,9 +1085,7 @@ export default class CanExplorer extends Component {
   }
 
   onMessageFrameEdited(messageFrame) {
-    const {
-      messages, dbcFilename, dbc, editMessageModalMessage
-    } = this.state;
+    const { messages, dbcFilename, dbc, editMessageModalMessage } = this.state;
 
     const message = { ...messages[editMessageModalMessage] };
     message.frame = messageFrame;
@@ -1085,7 +1115,7 @@ export default class CanExplorer extends Component {
     const msg = this.state.messages[this.state.selectedMessage];
     let seekIndex;
     if (msg) {
-      seekIndex = msg.entries.findIndex((e) => e.relTime >= seekTime);
+      seekIndex = msg.entries.findIndex(e => e.relTime >= seekTime);
       if (seekIndex === -1) {
         seekIndex = 0;
       }
@@ -1101,7 +1131,7 @@ export default class CanExplorer extends Component {
     const msg = messages[msgKey];
 
     if (seekTime > 0 && msg.entries.length > 0) {
-      seekIndex = msg.entries.findIndex((e) => e.relTime >= seekTime);
+      seekIndex = msg.entries.findIndex(e => e.relTime >= seekTime);
       if (seekIndex === -1) {
         seekIndex = 0;
       }
@@ -1125,7 +1155,7 @@ export default class CanExplorer extends Component {
     return (
       <a
         href={GithubAuth.authorizeUrl(
-          route && route.fullname ? route.fullname : ''
+          route && route.fullname ? route.fullname : ""
         )}
         className="button button--dark button--inline"
       >
@@ -1141,6 +1171,10 @@ export default class CanExplorer extends Component {
   }
 
   processStreamedCanMessages(newCanMessages) {
+    console.log(
+      `[CanExplorer::processStreamedCanMessages] newCanMessages: `,
+      JSON.stringify(newCanMessages)
+    );
     const { dbcText } = this.state;
     const {
       firstCanTime,
@@ -1226,8 +1260,8 @@ export default class CanExplorer extends Component {
     messages = this.enforceStreamingMessageWindow(messages);
     let { seekIndex, selectedMessages } = this.state;
     if (
-      selectedMessages.length > 0
-      && messages[selectedMessages[0]] !== undefined
+      selectedMessages.length > 0 &&
+      messages[selectedMessages[0]] !== undefined
     ) {
       seekIndex = Math.max(0, messages[selectedMessages[0]].entries.length - 1);
     }
@@ -1245,10 +1279,64 @@ export default class CanExplorer extends Component {
     this._onStreamedCanMessagesProcessed(e.data);
   }
 
+  async handleLoadedCSV(file) {
+    this.setState({
+      attemptingPandaConnection: false,
+      loadingCSVData: true,
+      live: false,
+      showOnboarding: false
+    });
+    const persistedDbc = fetchPersistedDbc("live");
+    if (persistedDbc) {
+      const { dbc, dbcText } = persistedDbc;
+      this.setState({ dbc, dbcText });
+    }
+    const fileReader = new FileReader();
+    fileReader.onload = async e => {
+      const lines = e.target.result.split("\n");
+      if (lines[0] !== "time,addr,bus,data") {
+        return this.setState({
+          attemptingPandaConnection: false,
+          loadingCSVData: false,
+          live: false,
+          showOnboarding: true
+        });
+      }
+      let lastTime = -1;
+      let startFrame = -1;
+      for (let i = 1; i < lines.length; i++) {
+        const lineParts = lines[i].split(",");
+        const message = {
+          time: Math.trunc(parseFloat(lineParts[0])),
+          addr: lineParts[1],
+          bus: lineParts[2],
+          data: lineParts[3]
+        };
+        if (startFrame === -1) {
+          startFrame = -message.time;
+        }
+        message.frame = startFrame + message.time;
+        if (lastTime !== -1 && lastTime !== message.time) {
+          await this.sleep(message.time - lastTime);
+          // console.log(`Should be waiting, but we don't do that ;)`);
+        }
+        lastTime = message.time;
+        // console.log(`Current message: `, parts);
+        // TODO: this.addAndRehydrateMessages(message);
+      }
+      console.log(`Done :)`);
+    };
+    fileReader.readAsText(file);
+  }
+
+  sleep(milli) {
+    return new Promise(resolve => setTimeout(resolve, milli));
+  }
+
   async handlePandaConnect(e) {
     this.setState({ attemptingPandaConnection: true, live: true });
 
-    const persistedDbc = fetchPersistedDbc('live');
+    const persistedDbc = fetchPersistedDbc("live");
     if (persistedDbc) {
       const { dbc, dbcText } = persistedDbc;
       this.setState({ dbc, dbcText });
@@ -1257,7 +1345,7 @@ export default class CanExplorer extends Component {
     this.canStreamerWorker.onmessage = this.onStreamedCanMessagesProcessed;
 
     // if any errors go off during connection, mark as not trying to connect anymore...
-    const unlisten = this.pandaReader.onError((err) => {
+    const unlisten = this.pandaReader.onError(err => {
       console.error(err.stack || err);
       this.setState({ attemptingPandaConnection: false });
     });
@@ -1305,7 +1393,7 @@ export default class CanExplorer extends Component {
     return (
       <div
         id="cabana"
-        className={cx({ 'is-showing-modal': this.showingModal() })}
+        className={cx({ "is-showing-modal": this.showingModal() })}
       >
         {this.state.isLoading ? (
           <LoadingBar isLoading={this.state.isLoading} />
@@ -1377,10 +1465,12 @@ export default class CanExplorer extends Component {
               autoplay={this.props.autoplay}
               showEditMessageModal={this.showEditMessageModal}
               onPartChange={this.onPartChange}
-              routeStartTime={
-                route ? route.start_time : Moment()
+              routeStartTime={route ? route.start_time : Moment()}
+              videoOffset={
+                this.state.firstFrameTime && this.state.routeInitTime
+                  ? this.state.firstFrameTime - this.state.routeInitTime
+                  : 0
               }
-              videoOffset={ (this.state.firstFrameTime && this.state.routeInitTime) ? this.state.firstFrameTime - this.state.routeInitTime : 0 }
               partsCount={route ? route.proclog : 0}
             />
           ) : null}
@@ -1389,6 +1479,7 @@ export default class CanExplorer extends Component {
         {this.state.showOnboarding ? (
           <OnboardingModal
             handlePandaConnect={this.handlePandaConnect}
+            handleLoadedCSV={this.handleLoadedCSV}
             attemptingPandaConnection={this.state.attemptingPandaConnection}
             routes={this.state.routes}
           />

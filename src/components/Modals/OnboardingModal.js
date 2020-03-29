@@ -1,12 +1,12 @@
-import React, { Component } from 'react';
-import PropTypes from 'prop-types';
-import Moment from 'moment';
-import _ from 'lodash';
-import cx from 'classnames';
-import CommaAuth from '@commaai/my-comma-auth';
+import React, { Component } from "react";
+import PropTypes from "prop-types";
+import Moment from "moment";
+import _ from "lodash";
+import cx from "classnames";
+import CommaAuth from "@commaai/my-comma-auth";
 
-import { EXPLORER_URL } from '../../config';
-import Modal from './baseModal';
+import { EXPLORER_URL } from "../../config";
+import Modal from "./baseModal";
 
 export default class OnboardingModal extends Component {
   static propTypes = {
@@ -15,8 +15,8 @@ export default class OnboardingModal extends Component {
   };
 
   static instructionalImages = {
-    step2: require('../../images/webusb-enable-experimental-features.png'),
-    step3: require('../../images/webusb-enable-webusb.png')
+    step2: require("../../images/webusb-enable-experimental-features.png"),
+    step3: require("../../images/webusb-enable-webusb.png")
   };
 
   constructor(props) {
@@ -29,6 +29,7 @@ export default class OnboardingModal extends Component {
     };
 
     this.attemptPandaConnection = this.attemptPandaConnection.bind(this);
+    this.handleFileUpload = this.handleFileUpload.bind(this);
     this.toggleUsbInstructions = this.toggleUsbInstructions.bind(this);
     this.navigateToExplorer = this.navigateToExplorer.bind(this);
   }
@@ -88,10 +89,63 @@ export default class OnboardingModal extends Component {
         <i className="fa fa-video-camera" />
         <strong>
           {CommaAuth.isAuthenticated()
-            ? 'Find a drive in Explorer'
-            : 'Log in with Explorer'}
+            ? "Find a drive in Explorer"
+            : "Log in with Explorer"}
         </strong>
         <sup>Click "View CAN Data" while replaying a drive</sup>
+      </button>
+    );
+  }
+
+  renderRealtimeStream() {
+    return (
+      <button
+        className={cx("button--secondary button--kiosk", {
+          "is-disabled":
+            !this.state.webUsbEnabled || this.props.attemptingPandaConnection
+        })}
+        onClick={this.attemptPandaConnection}
+      >
+        <i className="fa fa-bolt" />
+        <strong>Launch Realtime Streaming</strong>
+        <sup>
+          Interactively stream car data over USB with <em>panda</em>
+        </sup>
+        {this.renderPandaEligibility()}
+      </button>
+    );
+  }
+
+  handleFileUpload(event) {
+    const { files } = event.target;
+    if (files && files.length > 0) {
+      console.log(files[0]);
+      // console.log(this.props.handleLoadedCSV);
+      this.props.handleLoadedCSV(files[0]);
+    } else {
+      console.log(`Cancelled or otherwise removed selected file`);
+    }
+  }
+
+  renderCSVStream() {
+    return (
+      <button
+        className={cx("button--secondary button--kiosk", {
+          "is-disabled":
+            !this.state.webUsbEnabled || this.props.attemptingPandaConnection
+        })}
+        onClick={() => this.fileInput.click()}
+      >
+        <input
+          hidden={true}
+          type="file"
+          accept=".csv"
+          ref={fileInput => (this.fileInput = fileInput)}
+          onChange={this.handleFileUpload}
+        ></input>
+        <i className="fa fa-folder"></i>
+        <strong>Replay a CSV file</strong>
+        <sup>Replay and analyze a dumped cabana CSV log</sup>
       </button>
     );
   }
@@ -101,24 +155,9 @@ export default class OnboardingModal extends Component {
       <div className="cabana-onboarding-modes">
         <div className="cabana-onboarding-mode">{this.renderLogin()}</div>
         <div className="cabana-onboarding-mode">
-          <button
-            className={cx('button--secondary button--kiosk', {
-              'is-disabled':
-                !this.state.webUsbEnabled
-                || this.props.attemptingPandaConnection
-            })}
-            onClick={this.attemptPandaConnection}
-          >
-            <i className="fa fa-bolt" />
-            <strong>Launch Realtime Streaming</strong>
-            <sup>
-              Interactively stream car data over USB with
-              {' '}
-              <em>panda</em>
-            </sup>
-            {this.renderPandaEligibility()}
-          </button>
+          {this.renderRealtimeStream()}
         </div>
+        <div className="cabana-onboarding-mode">{this.renderCSVStream()}</div>
       </div>
     );
   }
@@ -186,8 +225,7 @@ export default class OnboardingModal extends Component {
     return (
       <p>
         <span>
-          Don't have a
-          {' '}
+          Don't have a{" "}
           <a
             href="https://panda.comma.ai"
             target="_blank"
@@ -195,8 +233,7 @@ export default class OnboardingModal extends Component {
           >
             panda
           </a>
-          ?
-          {' '}
+          ?{" "}
         </span>
         <span>
           <a
@@ -205,14 +242,10 @@ export default class OnboardingModal extends Component {
             rel="noopener noreferrer"
           >
             Get one here
-          </a>
-          {' '}
+          </a>{" "}
         </span>
         <span>
-          or
-          {' '}
-          <a href={`${window.location.href}?demo=1`}>try the demo</a>
-.
+          or <a href={`${window.location.href}?demo=1`}>try the demo</a>.
         </span>
       </p>
     );
@@ -225,7 +258,7 @@ export default class OnboardingModal extends Component {
         subtitle="Get started by selecting a drive from Explorer or enabling live mode"
         footer={this.renderModalFooter()}
         disableClose
-        variations={['wide', 'dark']}
+        variations={["wide", "dark"]}
       >
         {this.renderModalContent()}
       </Modal>
