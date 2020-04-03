@@ -499,7 +499,9 @@ export default class DBC {
 				// @ts-ignore
 				messageId = parseInt(messageId, 10);
 				const msg = messages.get(messageId);
-				msg.comment = comment;
+				if (msg) {
+					msg.comment = comment;
+				}
 
 				if (hasFollowUp) {
 					followUp = { type: FOLLOW_UP_MSG_COMMENT, data: msg };
@@ -645,8 +647,12 @@ export default class DBC {
 		}
 		const frame = this.getMessageFrame(messageId);
 
-		// @ts-ignore
-		const buffer = Buffer.from(data);
+		let buffer;
+		if (data) {
+			buffer = Buffer.from(data);
+		} else {
+			buffer = `00000000`;
+		}
 		let paddedBuffer = buffer;
 		if (buffer.length !== 8) {
 			// pad data it's 64 bits long

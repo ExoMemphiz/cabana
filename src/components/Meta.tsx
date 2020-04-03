@@ -136,7 +136,7 @@ export default class Meta extends Component<IProps, IState> {
 			const entryCountKey = msg.entries.length.toString(); // js object keys are strings
 			if (!partialMapping[entryCountKey]) {
 				partialMapping[entryCountKey] = [msg];
-			} else {
+			} else if (partialMapping[entryCountKey] && partialMapping[entryCountKey].push) {
 				partialMapping[entryCountKey].push(msg);
 			}
 			return partialMapping;
@@ -196,6 +196,7 @@ export default class Meta extends Component<IProps, IState> {
 	}
 
 	public canMsgFilter(msg: unknown) {
+		console.log(`[Meta::canMsgFilter] msg: `, JSON.stringify(msg));
 		// @ts-ignore
 		if (msg.isLogEvent) {
 			return false;

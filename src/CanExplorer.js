@@ -1092,8 +1092,31 @@ export default class CanExplorer extends Component {
 	}
 
 	processStreamedCanMessages(newCanMessages) {
-		console.log(`[CanExplorer::processStreamedCanMessages] newCanMessages: `, JSON.stringify(newCanMessages));
-		debugger;
+		//
+		// console.log(`[CanExplorer::processStreamedCanMessages] newCanMessages: `, JSON.stringify(newCanMessages));
+		/*
+		if (Array.isArray(newCanMessages)) {
+			if (newCanMessages.length > 0) {
+				console.log(`newCanMessage length: `, newCanMessages.length);
+				const first = newCanMessages[0];
+				console.log(first.canMessages[0]);
+				/*
+				first.canMessages[0] === Cabana Log Data
+
+				// {address: 1185, busTime: 34661, data: Uint8Array(7), bus: 0}
+
+				*/
+		// Object.keys(newCanMessages[0]) === ["time","canMessages"]
+		/*
+				console.log(
+					`[CanExplorer::processStreamedCanMessages] newCanMessages[0]: `,
+					JSON.stringify(Object.keys(newCanMessages[0])),
+				);
+				*/
+		/*
+			}
+		}
+		*/
 		const { dbcText } = this.state;
 		const { firstCanTime, lastBusTime, messages, maxByteStateChangeCount } = this.state;
 		// map msg id to arrays

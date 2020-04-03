@@ -118,7 +118,7 @@ export default class OnboardingModal extends Component {
 	}
 
 	renderCSVStream() {
-		debugger;
+		// debugger;
 		return (
 			<button
 				className={cx("button--secondary button--kiosk", {

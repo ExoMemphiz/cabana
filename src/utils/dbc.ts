@@ -90,13 +90,14 @@ function createMessageEntry(
 	data: IMessageEntry["frame"]["data"],
 	byteStateChangeTimes: IMessageEntry["frame"]["byteStateChangeTimes"],
 ) {
+	// console.log(`[DBC::createMessageEntry] data type: ${typeof data}, data: ${data}`);
 	return {
 		signals: dbc.getSignalValues(address, data),
 		address,
 		data,
 		time,
 		relTime,
-		hexData: Buffer.from(data).toString(`hex`),
+		hexData: data ? Buffer.from(data).toString(`hex`) : ``,
 		byteStateChangeTimes,
 		updated: Date.now(),
 	};
