@@ -66,6 +66,8 @@
     "@babel/preset-env": "^7.9.0",
     "@babel/preset-react": "^7.9.4",
     "@babel/preset-typescript": "^7.9.0",
+    "@types/classnames": "^2.2.10",
+    "@types/clipboard": "^2.0.1",
     "@types/jest": "^25.1.4",
     "@types/node": "^13.9.8",
     "@types/randomcolor": "^0.5.4",
@@ -95,7 +97,7 @@
     "xtend": "^4.0.2"
   },
   "scripts": {
-    "start": "PORT=3001 env-cmd .env.development craco start",
+    "start": "PORT=3001 craco start",
     "start-win": "craco start",
     "build": "env-cmd .env.production craco build",
     "netlify-sass": "node-sass src/index.scss > src/index.css",
