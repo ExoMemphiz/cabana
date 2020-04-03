@@ -1094,29 +1094,84 @@ export default class CanExplorer extends Component {
 	processStreamedCanMessages(newCanMessages) {
 		//
 		// console.log(`[CanExplorer::processStreamedCanMessages] newCanMessages: `, JSON.stringify(newCanMessages));
-		/*
 		if (Array.isArray(newCanMessages)) {
 			if (newCanMessages.length > 0) {
 				console.log(`newCanMessage length: `, newCanMessages.length);
 				const first = newCanMessages[0];
 				console.log(first.canMessages[0]);
+				console.log(JSON.stringify(first.canMessages[0]));
+				console.log(first.canMessages[0].data);
+				console.log(JSON.stringify(first.canMessages[0].data));
+
 				/*
 				first.canMessages[0] === Cabana Log Data
 
 				// {address: 1185, busTime: 34661, data: Uint8Array(7), bus: 0}
 
+
+				{address: 413, busTime: 40543, data: Uint8Array(8), bus: 0}
+				CanExplorer.js:1102 {"address":413,"busTime":40543,"data":{"type":"Buffer","data":[56,46,159,97,168,8,8,225]},"bus":0}
+				CanExplorer.js:1103 Uint8Array(8) [56, 46, 159, 97, 168, 8, 8, 225]
+				CanExplorer.js:1104 {"type":"Buffer","data":[56,46,159,97,168,8,8,225]}
+				CanExplorer.js:1099 newCanMessage length:  1
+				CanExplorer.js:1101 {address: 349, busTime: 61891, data: Uint8Array(8), bus: 0}
+				CanExplorer.js:1102 {"address":349,"busTime":61891,"data":{"type":"Buffer","data":[94,47,130,240,152,88,68,254]},"bus":0}
+				CanExplorer.js:1103 Uint8Array(8) [94, 47, 130, 240, 152, 88, 68, 254]
+				CanExplorer.js:1104 {"type":"Buffer","data":[94,47,130,240,152,88,68,254]}
+				CanExplorer.js:1099 newCanMessage length:  1
+				CanExplorer.js:1101 {address: 225, busTime: 20088, data: Uint8Array(8), bus: 0}
+				CanExplorer.js:1102 {"address":225,"busTime":20088,"data":{"type":"Buffer","data":[140,220,127,255,127,240,176,250]},"bus":0}
+				CanExplorer.js:1103 Uint8Array(8) [140, 220, 127, 255, 127, 240, 176, 250]
+				CanExplorer.js:1104 {"type":"Buffer","data":[140,220,127,255,127,240,176,250]}
+				CanExplorer.js:1099 newCanMessage length:  1
+				CanExplorer.js:1101 {address: 666, busTime: 44779, data: Uint8Array(8), bus: 0}
+				CanExplorer.js:1102 {"address":666,"busTime":44779,"data":{"type":"Buffer","data":[0,0,0,0,0,0,5,250]},"bus":0}
+				CanExplorer.js:1103 Uint8Array(8) [0, 0, 0, 0, 0, 0, 5, 250]
+				CanExplorer.js:1104 {"type":"Buffer","data":[0,0,0,0,0,0,5,250]}
+				CanExplorer.js:1099 newCanMessage length:  1
+				CanExplorer.js:1101 {address: 1108, busTime: 1171, data: Uint8Array(8), bus: 0}
+				CanExplorer.js:1102 {"address":1108,"busTime":1171,"data":{"type":"Buffer","data":[234,197,32,128,134,85,4,16]},"bus":0}
+				CanExplorer.js:1103 Uint8Array(8) [234, 197, 32, 128, 134, 85, 4, 16]
+				CanExplorer.js:1104 {"type":"Buffer","data":[234,197,32,128,134,85,4,16]}
+				CanExplorer.js:1099 newCanMessage length:  1
+				CanExplorer.js:1101 {address: 786, busTime: 23129, data: Uint8Array(8), bus: 0}
+				CanExplorer.js:1102 {"address":786,"busTime":23129,"data":{"type":"Buffer","data":[80,0,2,103,255,208,0,119]},"bus":0}
+				CanExplorer.js:1103 Uint8Array(8) [80, 0, 2, 103, 255, 208, 0, 119]
+				CanExplorer.js:1104 {"type":"Buffer","data":[80,0,2,103,255,208,0,119]}
+				CanExplorer.js:1099 newCanMessage length:  1
+				CanExplorer.js:1101 {address: 1112, busTime: 45152, data: Uint8Array(8), bus: 0}
+				CanExplorer.js:1102 {"address":1112,"busTime":45152,"data":{"type":"Buffer","data":[0,8,0,0,41,17,132,128]},"bus":0}
+				CanExplorer.js:1103 Uint8Array(8) [0, 8, 0, 0, 41, 17, 132, 128]
+				CanExplorer.js:1104 {"type":"Buffer","data":[0,8,0,0,41,17,132,128]}
+
+
+				{address: 346, busTime: 45941, data: Uint8Array(6), bus: 0}
+				CanExplorer.js:1102 {"address":346,"busTime":45941,"data":{"type":"Buffer","data":[61,48,0,24,0,0]},"bus":0}
+				CanExplorer.js:1103 Uint8Array(6) [61, 48, 0, 24, 0, 0]
+				CanExplorer.js:1104 {"type":"Buffer","data":[61,48,0,24,0,0]}
+
+				{address: 413, busTime: 54144, data: Uint8Array(8), bus: 0}
+				CanExplorer.js:1102 {"address":413,"busTime":54144,"data":{"type":"Buffer","data":[56,46,159,97,168,8,14,219]},"bus":0}
+				CanExplorer.js:1103 Uint8Array(8) [56, 46, 159, 97, 168, 8, 14, 219]
+				CanExplorer.js:1104 {"type":"Buffer","data":[56,46,159,97,168,8,14,219]}
+
+				{address: 413, busTime: 64142, data: Uint8Array(8), bus: 0}
+				CanExplorer.js:1102 {"address":413,"busTime":64142,"data":{"type":"Buffer","data":[56,46,159,97,168,8,2,231]},"bus":0}
+				CanExplorer.js:1103 Uint8Array(8) [56, 46, 159, 97, 168, 8, 2, 231]
+				CanExplorer.js:1104 {"type":"Buffer","data":[56,46,159,97,168,8,2,231]}
+
+
+
 				*/
-		// Object.keys(newCanMessages[0]) === ["time","canMessages"]
-		/*
+				// Object.keys(newCanMessages[0]) === ["time","canMessages"]
+				/*
 				console.log(
 					`[CanExplorer::processStreamedCanMessages] newCanMessages[0]: `,
 					JSON.stringify(Object.keys(newCanMessages[0])),
 				);
 				*/
-		/*
 			}
 		}
-		*/
 		const { dbcText } = this.state;
 		const { firstCanTime, lastBusTime, messages, maxByteStateChangeCount } = this.state;
 		// map msg id to arrays
