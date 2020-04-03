@@ -1,11 +1,11 @@
 import { Uint64BE } from "int64-buffer";
 
-export function formatForMsg(msg: unknown) {
+export function formatForMsg() {
 	return { bstart: 0, bend: 15 };
 }
 
 export function formatMsgDec(msg: unknown) {
-	const { bstart, bend } = formatForMsg(msg);
+	const { bstart, bend } = formatForMsg();
 	// @ts-ignore
 	const uint = Uint64BE(msg[1]);
 	let tt = `0${uint.toString(2)}`;

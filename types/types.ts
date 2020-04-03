@@ -1,16 +1,18 @@
+import Signal from "../src/models/can/signal";
+
 export interface IMessages {
 	entries: Array<IMessageEntry>;
 }
 
 export interface IMessageEntry {
 	frame: {
-		signals: Array<unknown>;
-		address: unknown;
-		data: unknown;
-		time: unknown;
-		relTime: unknown;
+		signals: Array<Signal>;
+		address: number;
+		data: Buffer;
+		time: number;
+		relTime: number;
 		hexData: string;
-		byteStateChangeTimes: unknown;
+		byteStateChangeTimes: number;
 		updated: number;
 	};
 }

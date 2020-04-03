@@ -9,7 +9,6 @@ export function swapKeysAndValues(obj: object) {
 export function fromArray(arr: Array<[string, number]>) {
 	// arr is an array of array key-value pairs
 	// like [['a', 1], ['b', 2]]
-
 	const pairs = arr.map(([k, v]) => ({ [k]: v }));
 	if (pairs.length > 0) {
 		return Object.assign({}, ...pairs);

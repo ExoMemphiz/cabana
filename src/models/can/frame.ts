@@ -1,11 +1,13 @@
+import { SignalMapProperties } from "./logSignals";
+
 interface IFrameConstructor {
-	name?: string;
-	id?: string | number;
+	name?: string | null;
+	id?: string | number | null;
 	size?: number;
 	transmitters?: Array<unknown>;
 	extended?: number;
 	comment?: string;
-	signals?: unknown;
+	signals?: { [key in SignalMapProperties]: object };
 }
 
 export default class Frame {
@@ -15,7 +17,7 @@ export default class Frame {
 	public transmitters: IFrameConstructor["transmitters"];
 	public extended: IFrameConstructor["extended"];
 	public comment: IFrameConstructor["comment"];
-	public signals: IFrameConstructor["signals"];
+	public signals?: IFrameConstructor["signals"];
 
 	constructor({
 		name,
@@ -24,6 +26,7 @@ export default class Frame {
 		transmitters = [],
 		extended = 0,
 		comment = ``,
+		// @ts-ignore
 		signals = {},
 	}: IFrameConstructor) {
 		this.name = name;

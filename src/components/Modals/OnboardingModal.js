@@ -9,259 +9,232 @@ import { EXPLORER_URL } from "../../config";
 import Modal from "./baseModal";
 
 export default class OnboardingModal extends Component {
-  static propTypes = {
-    handlePandaConnect: PropTypes.func,
-    routes: PropTypes.array
-  };
+	static propTypes = {
+		handlePandaConnect: PropTypes.func,
+		routes: PropTypes.array,
+	};
 
-  static instructionalImages = {
-    step2: require("../../images/webusb-enable-experimental-features.png"),
-    step3: require("../../images/webusb-enable-webusb.png")
-  };
+	static instructionalImages = {
+		step2: require("../../images/webusb-enable-experimental-features.png"),
+		step3: require("../../images/webusb-enable-webusb.png"),
+	};
 
-  constructor(props) {
-    super(props);
+	constructor(props) {
+		super(props);
 
-    this.state = {
-      webUsbEnabled: !!navigator.usb,
-      viewingUsbInstructions: false,
-      pandaConnected: false
-    };
+		this.state = {
+			webUsbEnabled: !!navigator.usb,
+			viewingUsbInstructions: false,
+			pandaConnected: false,
+		};
 
-    this.attemptPandaConnection = this.attemptPandaConnection.bind(this);
-    this.handleFileUpload = this.handleFileUpload.bind(this);
-    this.toggleUsbInstructions = this.toggleUsbInstructions.bind(this);
-    this.navigateToExplorer = this.navigateToExplorer.bind(this);
-  }
+		this.attemptPandaConnection = this.attemptPandaConnection.bind(this);
+		this.handleFileUpload = this.handleFileUpload.bind(this);
+		this.toggleUsbInstructions = this.toggleUsbInstructions.bind(this);
+		this.navigateToExplorer = this.navigateToExplorer.bind(this);
+	}
 
-  attemptPandaConnection() {
-    if (!this.state.webUsbEnabled) {
-      return;
-    }
-    this.props.handlePandaConnect();
-  }
+	attemptPandaConnection() {
+		if (!this.state.webUsbEnabled) {
+			return;
+		}
+		this.props.handlePandaConnect();
+	}
 
-  toggleUsbInstructions() {
-    this.setState({
-      viewingUsbInstructions: !this.state.viewingUsbInstructions
-    });
-  }
+	toggleUsbInstructions() {
+		this.setState({
+			viewingUsbInstructions: !this.state.viewingUsbInstructions,
+		});
+	}
 
-  navigateToExplorer() {
-    window.location.href = EXPLORER_URL;
-  }
+	navigateToExplorer() {
+		window.location.href = EXPLORER_URL;
+	}
 
-  filterRoutesWithCan(drive) {
-    return drive.can === true;
-  }
+	filterRoutesWithCan(drive) {
+		return drive.can === true;
+	}
 
-  renderPandaEligibility() {
-    const { webUsbEnabled, pandaConnected } = this.state;
-    const { attemptingPandaConnection } = this.props;
-    if (!webUsbEnabled) {
-      return (
-        <p>
-          <i className="fa fa-exclamation-triangle" />
-          <a onClick={this.toggleUsbInstructions}>
-            <span>WebUSB is not enabled in your Chrome settings</span>
-          </a>
-        </p>
-      );
-    }
-    if (!pandaConnected && attemptingPandaConnection) {
-      return (
-        <p>
-          <i className="fa fa-spinner animate-spin" />
-          <span className="animate-pulse-opacity">
-            Waiting for panda USB connection
-          </span>
-        </p>
-      );
-    }
-  }
+	renderPandaEligibility() {
+		const { webUsbEnabled, pandaConnected } = this.state;
+		const { attemptingPandaConnection } = this.props;
+		if (!webUsbEnabled) {
+			return (
+				<p>
+					<i className="fa fa-exclamation-triangle" />
+					<a onClick={this.toggleUsbInstructions}>
+						<span>WebUSB is not enabled in your Chrome settings</span>
+					</a>
+				</p>
+			);
+		}
+		if (!pandaConnected && attemptingPandaConnection) {
+			return (
+				<p>
+					<i className="fa fa-spinner animate-spin" />
+					<span className="animate-pulse-opacity">Waiting for panda USB connection</span>
+				</p>
+			);
+		}
+	}
 
-  renderLogin() {
-    return (
-      <button
-        onClick={this.navigateToExplorer}
-        className="button--primary button--kiosk"
-      >
-        <i className="fa fa-video-camera" />
-        <strong>
-          {CommaAuth.isAuthenticated()
-            ? "Find a drive in Explorer"
-            : "Log in with Explorer"}
-        </strong>
-        <sup>Click "View CAN Data" while replaying a drive</sup>
-      </button>
-    );
-  }
+	renderLogin() {
+		return (
+			<button onClick={this.navigateToExplorer} className="button--primary button--kiosk">
+				<i className="fa fa-video-camera" />
+				<strong>{CommaAuth.isAuthenticated() ? "Find a drive in Explorer" : "Log in with Explorer"}</strong>
+				<sup>Click "View CAN Data" while replaying a drive</sup>
+			</button>
+		);
+	}
 
-  renderRealtimeStream() {
-    return (
-      <button
-        className={cx("button--secondary button--kiosk", {
-          "is-disabled":
-            !this.state.webUsbEnabled || this.props.attemptingPandaConnection
-        })}
-        onClick={this.attemptPandaConnection}
-      >
-        <i className="fa fa-bolt" />
-        <strong>Launch Realtime Streaming</strong>
-        <sup>
-          Interactively stream car data over USB with <em>panda</em>
-        </sup>
-        {this.renderPandaEligibility()}
-      </button>
-    );
-  }
+	renderRealtimeStream() {
+		return (
+			<button
+				className={cx("button--secondary button--kiosk", {
+					"is-disabled": !this.state.webUsbEnabled || this.props.attemptingPandaConnection,
+				})}
+				onClick={this.attemptPandaConnection}
+			>
+				<i className="fa fa-bolt" />
+				<strong>Launch Realtime Streaming</strong>
+				<sup>
+					Interactively stream car data over USB with <em>panda</em>
+				</sup>
+				{this.renderPandaEligibility()}
+			</button>
+		);
+	}
 
-  handleFileUpload(event) {
-    const { files } = event.target;
-    if (files && files.length > 0) {
-      console.log(files[0]);
-      // console.log(this.props.handleLoadedCSV);
-      this.props.handleLoadedCSV(files[0]);
-    } else {
-      console.log(`Cancelled or otherwise removed selected file`);
-    }
-  }
+	handleFileUpload(event) {
+		const { files } = event.target;
+		if (files && files.length > 0) {
+			console.log(files[0]);
+			// console.log(this.props.handleLoadedCSV);
+			this.props.handleLoadedCSV(files[0]);
+		} else {
+			console.log(`Cancelled or otherwise removed selected file`);
+		}
+	}
 
-  renderCSVStream() {
-    return (
-      <button
-        className={cx("button--secondary button--kiosk", {
-          "is-disabled":
-            !this.state.webUsbEnabled || this.props.attemptingPandaConnection
-        })}
-        onClick={() => this.fileInput.click()}
-      >
-        <input
-          hidden={true}
-          type="file"
-          accept=".csv"
-          ref={fileInput => (this.fileInput = fileInput)}
-          onChange={this.handleFileUpload}
-        ></input>
-        <i className="fa fa-folder"></i>
-        <strong>Replay a CSV file</strong>
-        <sup>Replay and analyze a dumped cabana CSV log</sup>
-      </button>
-    );
-  }
+	renderCSVStream() {
+		debugger;
+		return (
+			<button
+				className={cx("button--secondary button--kiosk", {
+					"is-disabled": !this.state.webUsbEnabled || this.props.attemptingPandaConnection,
+				})}
+				onClick={() => this.fileInput.click()}
+			>
+				<input
+					hidden={true}
+					type="file"
+					accept=".csv"
+					ref={(fileInput) => (this.fileInput = fileInput)}
+					onChange={this.handleFileUpload}
+				></input>
+				<i className="fa fa-folder"></i>
+				<strong>Replay a CSV file</strong>
+				<sup>Replay and analyze a dumped cabana CSV log</sup>
+			</button>
+		);
+	}
 
-  renderOnboardingOptions() {
-    return (
-      <div className="cabana-onboarding-modes">
-        <div className="cabana-onboarding-mode">{this.renderLogin()}</div>
-        <div className="cabana-onboarding-mode">
-          {this.renderRealtimeStream()}
-        </div>
-        <div className="cabana-onboarding-mode">{this.renderCSVStream()}</div>
-      </div>
-    );
-  }
+	renderOnboardingOptions() {
+		return (
+			<div className="cabana-onboarding-modes">
+				<div className="cabana-onboarding-mode">{this.renderLogin()}</div>
+				<div className="cabana-onboarding-mode">{this.renderRealtimeStream()}</div>
+				<div className="cabana-onboarding-mode">{this.renderCSVStream()}</div>
+			</div>
+		);
+	}
 
-  renderUsbInstructions() {
-    return (
-      <div className="cabana-onboarding-instructions">
-        <button
-          className="button--small button--inverted"
-          onClick={this.toggleUsbInstructions}
-        >
-          <i className="fa fa-chevron-left" />
-          <span> Go back</span>
-        </button>
-        <h3>Follow these directions to enable WebUSB:</h3>
-        <ol className="cabana-onboarding-instructions-list list--bubbled">
-          <li>
-            <p>
-              <strong>Open your Chrome settings:</strong>
-            </p>
-            <div className="inset">
-              <span>
-                chrome://flags/#enable-experimental-web-platform-features
-              </span>
-            </div>
-          </li>
-          <li>
-            <p>
-              <strong>Enable Experimental Platform features:</strong>
-            </p>
-            <img
-              alt="Screenshot of Google Chrome Experimental Platform features"
-              src={OnboardingModal.instructionalImages.step2}
-            />
-          </li>
-          <li>
-            <p>
-              <strong>Enable WebUSB:</strong>
-            </p>
-            <img
-              alt="Screenshot of Google Chrome enable WebUSB"
-              src={OnboardingModal.instructionalImages.step3}
-            />
-          </li>
-          <li>
-            <p>
-              <strong>
-                Relaunch your Chrome browser and try enabling live mode again.
-              </strong>
-            </p>
-          </li>
-        </ol>
-      </div>
-    );
-  }
+	renderUsbInstructions() {
+		return (
+			<div className="cabana-onboarding-instructions">
+				<button className="button--small button--inverted" onClick={this.toggleUsbInstructions}>
+					<i className="fa fa-chevron-left" />
+					<span> Go back</span>
+				</button>
+				<h3>Follow these directions to enable WebUSB:</h3>
+				<ol className="cabana-onboarding-instructions-list list--bubbled">
+					<li>
+						<p>
+							<strong>Open your Chrome settings:</strong>
+						</p>
+						<div className="inset">
+							<span>chrome://flags/#enable-experimental-web-platform-features</span>
+						</div>
+					</li>
+					<li>
+						<p>
+							<strong>Enable Experimental Platform features:</strong>
+						</p>
+						<img
+							alt="Screenshot of Google Chrome Experimental Platform features"
+							src={OnboardingModal.instructionalImages.step2}
+						/>
+					</li>
+					<li>
+						<p>
+							<strong>Enable WebUSB:</strong>
+						</p>
+						<img
+							alt="Screenshot of Google Chrome enable WebUSB"
+							src={OnboardingModal.instructionalImages.step3}
+						/>
+					</li>
+					<li>
+						<p>
+							<strong>Relaunch your Chrome browser and try enabling live mode again.</strong>
+						</p>
+					</li>
+				</ol>
+			</div>
+		);
+	}
 
-  renderModalContent() {
-    if (this.state.viewingUsbInstructions) {
-      return this.renderUsbInstructions();
-    }
-    return this.renderOnboardingOptions();
-  }
+	renderModalContent() {
+		if (this.state.viewingUsbInstructions) {
+			return this.renderUsbInstructions();
+		}
+		return this.renderOnboardingOptions();
+	}
 
-  renderModalFooter() {
-    return (
-      <p>
-        <span>
-          Don't have a{" "}
-          <a
-            href="https://panda.comma.ai"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            panda
-          </a>
-          ?{" "}
-        </span>
-        <span>
-          <a
-            href="https://panda.comma.ai"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Get one here
-          </a>{" "}
-        </span>
-        <span>
-          or <a href={`${window.location.href}?demo=1`}>try the demo</a>.
-        </span>
-      </p>
-    );
-  }
+	renderModalFooter() {
+		return (
+			<p>
+				<span>
+					Don't have a{" "}
+					<a href="https://panda.comma.ai" target="_blank" rel="noopener noreferrer">
+						panda
+					</a>
+					?{" "}
+				</span>
+				<span>
+					<a href="https://panda.comma.ai" target="_blank" rel="noopener noreferrer">
+						Get one here
+					</a>{" "}
+				</span>
+				<span>
+					or <a href={`${window.location.href}?demo=1`}>try the demo</a>.
+				</span>
+			</p>
+		);
+	}
 
-  render() {
-    return (
-      <Modal
-        title="Welcome to Cabana"
-        subtitle="Get started by selecting a drive from Explorer or enabling live mode"
-        footer={this.renderModalFooter()}
-        disableClose
-        variations={["wide", "dark"]}
-      >
-        {this.renderModalContent()}
-      </Modal>
-    );
-  }
+	render() {
+		return (
+			<Modal
+				title="Welcome to Cabana"
+				subtitle="Get started by selecting a drive from Explorer or enabling live mode"
+				footer={this.renderModalFooter()}
+				disableClose
+				variations={["wide", "dark"]}
+			>
+				{this.renderModalContent()}
+			</Modal>
+		);
+	}
 }

@@ -1,12 +1,12 @@
 import classNames from "classnames";
 import ClipboardJS from "clipboard";
 import moment from "moment";
-import React, { Component, ReactNode, ChangeEvent } from "react";
+import React, { ChangeEvent, Component, ReactNode } from "react";
 
 import { IMessages } from "../../types/types";
 import MessageBytes from "./MessageBytes";
 
-const { ckmeans } = require(`simple-statistics`);
+import { ckmeans } from "simple-statistics";
 
 interface IProps {
 	dongleId: string;
@@ -145,7 +145,6 @@ export default class Meta extends Component<IProps, IState> {
 		const entryCounts = Object.keys(messagesByEntryCount).map((count) => parseInt(count, 10));
 		const binnedEntryCounts = ckmeans(entryCounts, Math.min(entryCounts.length, 10));
 		const sortedKeys = binnedEntryCounts
-			// @ts-ignore
 			.map((bin) =>
 				bin
 					// @ts-ignore
@@ -196,33 +195,37 @@ export default class Meta extends Component<IProps, IState> {
 		}
 	}
 
-	// @ts-ignore
-	public canMsgFilter(msg) {
+	public canMsgFilter(msg: unknown) {
+		// @ts-ignore
 		if (msg.isLogEvent) {
 			return false;
 		}
 		const { filterText } = this.state;
+		// @ts-ignore
 		const msgName = msg.frame ? msg.frame.name : ``;
 
 		return (
 			filterText === `Filter` ||
 			filterText === `` ||
+			// @ts-ignore
 			msg.id.toLowerCase().indexOf(filterText.toLowerCase()) !== -1 ||
 			msgName.toLowerCase().indexOf(filterText.toLowerCase()) !== -1
 		);
 	}
 
-	// @ts-ignore
-	public logEventMsgFilter(msg) {
+	public logEventMsgFilter(msg: unknown) {
+		// @ts-ignore
 		if (!msg.isLogEvent) {
 			return false;
 		}
 		const { filterText } = this.state;
+		// @ts-ignore
 		const msgName = msg.frame ? msg.frame.name : ``;
 
 		return (
 			filterText === `Filter` ||
 			filterText === `` ||
+			// @ts-ignore
 			msg.id.toLowerCase().indexOf(filterText.toLowerCase()) !== -1 ||
 			msgName.toLowerCase().indexOf(filterText.toLowerCase()) !== -1
 		);

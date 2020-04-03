@@ -10,6 +10,7 @@ function signalColors(signal: Signal, msg: IMessageEntry) {
 
 function _calcGraphData(msg: IMessageEntry, signalUid: unknown, firstCanTime: unknown) {
 	console.log(`[graph-data::_calcGraphData] Msg: `, JSON.stringify(msg));
+	debugger;
 
 	if (!msg) {
 		return null;

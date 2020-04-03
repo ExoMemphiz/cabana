@@ -191,6 +191,18 @@ export const thermalFreeSpace = {
 	}),
 };
 
+export enum SignalMapProperties {
+	CarStateWheelSpeeds = "CarState:WheelSpeeds",
+	CarStateEgo = "CarState:Ego",
+	CarStateControls = "CarState:Controls",
+	CarStateFlags = "CarState:Flags",
+	UbloxGnss = "UbloxGnss:MeasurementReport",
+	HealthData = "Health:Data",
+	ThermalCPU = "Thermal:CPU",
+	ThermalData = "Thermal:Data",
+	ThermalFreeSpace = "Thermal:FreeSpace",
+}
+
 export const signalMap = {
 	"CarState:WheelSpeeds": wheelSpeeds,
 	"CarState:Ego": ego,
@@ -203,7 +215,7 @@ export const signalMap = {
 	"Thermal:FreeSpace": thermalFreeSpace,
 };
 
-const ADDRESS_LIST: Array<unknown> = [];
+const ADDRESS_LIST: Array<string> = [];
 
 Object.keys(signalMap).forEach((name) => {
 	// @ts-ignore
@@ -281,12 +293,12 @@ export function addressForName(name: string) {
 	return i + 0x1000;
 }
 
-export function nameForAddress(address: number): string {
+export function nameForAddress(address: number): string | null {
 	if (address >= 0x1000) {
-		// @ts-ignore
 		return ADDRESS_LIST[address - 0x1000];
 	}
-	throw Error(`[logSignals::nameForAddress] Address too small: ${address}, should be >= 0x1000`);
+	return null;
+	// throw Error(`[logSignals::nameForAddress] Address too small: ${address}, should be >= 0x1000`);
 }
 
 export function isLogAddress(address: number) {

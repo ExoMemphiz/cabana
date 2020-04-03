@@ -6,7 +6,7 @@
 	"filepath": "none",
 	"htmlWhitespaceSensitivity": "ignore",
     "insertPragma": false,
-"jsxBracketSameLine": false,
+    "jsxBracketSameLine": false,
 	"jsxSingleQuote": false,
 	"overrides": [],
 	"parser": "typescript",

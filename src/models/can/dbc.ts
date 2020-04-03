@@ -1,5 +1,6 @@
 // @ts-ignore
 import rightPad from "right-pad";
+import { IMessageEntry } from "../../../types/types";
 import CloudLog from "../../logging/CloudLog";
 import DbcUtils from "../../utils/dbc";
 import BoardUnit from "./BoardUnit";
@@ -64,7 +65,7 @@ export function swapOrder(arr: Array<unknown>, wordSize: number, gSize: number) 
 export default class DBC {
 	private boardUnits: Array<BoardUnit>;
 	private readonly comments: Array<string>;
-	private messages: Map<string, Frame>;
+	private messages: Map<number, Frame>;
 	private readonly dbcText?: string;
 	private valueTables?: Map<unknown, unknown>;
 
@@ -79,20 +80,18 @@ export default class DBC {
 		}
 	}
 
-	// @ts-ignore
-	public getMessageFrame(address): Frame {
+	public getMessageFrame(address: IMessageEntry["frame"]["address"]): IMessageEntry["frame"] | Frame | undefined {
 		if (LogSignals.isLogAddress(address)) {
 			return LogSignals.frameForAddress(address);
 		}
-		// @ts-ignore
 		return this.messages.get(address);
 	}
 
 	public nextNewFrameName() {
 		const messageNames = [];
 
-		// @ts-ignore
 		for (const msg of this.messages.values()) {
+			// @ts-ignore
 			messageNames.push(msg.name);
 		}
 
@@ -111,6 +110,8 @@ export default class DBC {
 
 		// @ts-ignore
 		const mappedSignals = Array.from(this.messages.entries()).map(([msgId, frame]) => Object.values(frame.signals));
+		const concattedSignals = mappedSignals.reduce((arr, signals) => arr.concat(signals), []);
+		const concattedReceivers = concattedSignals.map((signal: Signal) => signal.receiver);
 
 		const missingBoardUnits = Array.from(this.messages.entries())
 			// @ts-ignore
@@ -141,7 +142,6 @@ export default class DBC {
 		txt += `\nBU_: ${boardUnitsText}\n\n\n`;
 
 		const frames = [];
-		// @ts-ignore
 		for (const frame of this.messages.values()) {
 			frames.push(frame);
 		}
@@ -194,7 +194,9 @@ export default class DBC {
 		if (msg && msg.frame) {
 			// @ts-ignore
 			return msg.frame.name;
+			// @ts-ignore
 		} else if (msg && msg.name) {
+			// @ts-ignore
 			return msg.name;
 		}
 		return null;
@@ -637,10 +639,7 @@ export default class DBC {
 		return signalValue * signalSpec.factor + signalSpec.offset;
 	};
 
-	public getSignalValues(messageId: number, data: unknown) {
-		// @ts-ignore
-		console.log(`[dbc::getSignalValues] messageId type: ${typeof messageId}, value: ${messageId}`);
-		// @ts-ignore
+	public getSignalValues(messageId: number, data: Buffer) {
 		if (!this.messages.has(messageId) && !LogSignals.isLogAddress(messageId)) {
 			return {};
 		}

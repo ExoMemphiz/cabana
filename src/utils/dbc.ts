@@ -41,9 +41,9 @@ function addCanMessage(canMessage, dbc, canStartTime, messages, prevMsgEntries, 
 	return msgEntry;
 }
 
-// @ts-ignore
-function createMessageSpec(dbc, address, id, bus) {
+function createMessageSpec(dbc: DBC, address: number, id: string, bus: number) {
 	const frame = dbc.getMessageFrame(address);
+	// @ts-ignore
 	const size = frame ? frame.size : 8;
 
 	return {
@@ -57,7 +57,6 @@ function createMessageSpec(dbc, address, id, bus) {
 	};
 }
 
-// @ts-ignore
 // @ts-ignore
 function determineByteStateChangeTimes(hexData, time, msgSize, lastParsedMessage) {
 	const byteStateChangeCounts = Array(msgSize).fill(0);
@@ -83,10 +82,15 @@ function determineByteStateChangeTimes(hexData, time, msgSize, lastParsedMessage
 	return { byteStateChangeTimes, byteStateChangeCounts };
 }
 
-// @ts-ignore
-function createMessageEntry(dbc: DBC, address: string, time, relTime, data, byteStateChangeTimes) {
+function createMessageEntry(
+	dbc: DBC,
+	address: IMessageEntry["frame"]["address"],
+	time: IMessageEntry["frame"]["time"],
+	relTime: IMessageEntry["frame"]["relTime"],
+	data: IMessageEntry["frame"]["data"],
+	byteStateChangeTimes: IMessageEntry["frame"]["byteStateChangeTimes"],
+) {
 	return {
-		// @ts-ignore
 		signals: dbc.getSignalValues(address, data),
 		address,
 		data,
@@ -100,6 +104,7 @@ function createMessageEntry(dbc: DBC, address: string, time, relTime, data, byte
 
 function reparseMessage(dbc: DBC, msg: IMessageEntry["frame"], lastParsedMessage: IMessageEntry) {
 	const msgSpec = dbc.getMessageFrame(msg.address);
+	// @ts-ignore
 	const msgSize = msgSpec ? msgSpec.size : 8;
 
 	const { byteStateChangeTimes, byteStateChangeCounts } = determineByteStateChangeTimes(
@@ -120,16 +125,24 @@ function reparseMessage(dbc: DBC, msg: IMessageEntry["frame"], lastParsedMessage
 	return { msgEntry, byteStateChangeCounts };
 }
 
-// @ts-ignore
-function parseMessage(dbc: DBC, time, address: string, data, timeStart, lastParsedMessage: IMessageEntry) {
+function parseMessage(
+	dbc: DBC,
+	time: IMessageEntry["frame"]["time"],
+	address: IMessageEntry["frame"]["address"],
+	data: IMessageEntry["frame"]["data"],
+	timeStart: IMessageEntry["frame"]["time"],
+	lastParsedMessage: IMessageEntry,
+) {
 	let hexData;
+	let unhexedData;
 	if (typeof data === `string`) {
 		hexData = data;
-		data = Buffer.from(data, `hex`);
+		unhexedData = Buffer.from(data, `hex`);
 	} else {
 		hexData = Buffer.from(data).toString(`hex`);
 	}
 	const msgSpec = dbc.getMessageFrame(address);
+	// @ts-ignore
 	const msgSize = msgSpec ? msgSpec.size : 8;
 	const relTime = time - timeStart;
 
@@ -139,7 +152,8 @@ function parseMessage(dbc: DBC, time, address: string, data, timeStart, lastPars
 		msgSize,
 		lastParsedMessage,
 	);
-	const msgEntry = createMessageEntry(dbc, address, time, relTime, data, byteStateChangeTimes);
+	// @ts-ignore
+	const msgEntry = createMessageEntry(dbc, address, time, relTime, unhexedData, byteStateChangeTimes);
 
 	return { msgEntry, byteStateChangeCounts };
 }
