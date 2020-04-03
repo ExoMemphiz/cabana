@@ -1,7 +1,21 @@
 import PropTypes from "prop-types";
 import React, { Component } from "react";
+import { IMessages } from "../../types/types";
 
-export default class MessageBytes extends Component {
+interface IProps {
+	seekTime: number;
+	message: IMessages;
+	seekIndex?: number;
+	live: boolean;
+}
+
+interface IState {
+	isVisible: boolean;
+	lastMessageIndex: number;
+	lastSeekTime: number;
+}
+
+export default class MessageBytes extends Component<IProps, IState> {
 	public static propTypes = {
 		seekTime: PropTypes.number.isRequired,
 		message: PropTypes.object.isRequired,
@@ -9,9 +23,9 @@ export default class MessageBytes extends Component {
 		live: PropTypes.bool.isRequired,
 	};
 
-	private canvas: HTMLCanvasElement;
+	private canvas?: HTMLCanvasElement;
 
-	constructor(props) {
+	constructor(props: IProps) {
 		super(props);
 		this.state = {
 			isVisible: true,
@@ -23,17 +37,18 @@ export default class MessageBytes extends Component {
 		this.onCanvasRefAvailable = this.onCanvasRefAvailable.bind(this);
 	}
 
-	public shouldComponentUpdate(nextProps, nextState) {
+	public shouldComponentUpdate(nextProps: IProps) {
 		if (nextProps.live) {
 			const nextLastEntry = nextProps.message.entries[nextProps.message.entries.length - 1];
 			const curLastEntry = this.props.message.entries[this.props.message.entries.length - 1];
 
+			// @ts-ignore
 			return nextLastEntry.hexData !== curLastEntry.hexData;
 		}
 		return nextProps.seekTime !== this.props.seekTime;
 	}
 
-	public componentWillReceiveProps(nextProps) {
+	public componentWillReceiveProps(nextProps: IProps) {
 		if (
 			this.props.seekIndex !== nextProps.seekIndex ||
 			frameForTime(this.props.seekTime) !== frameForTime(nextProps.seekTime)
@@ -41,18 +56,19 @@ export default class MessageBytes extends Component {
 			this.updateCanvas(nextProps);
 		}
 
-		function frameForTime(t) {
+		function frameForTime(t: number) {
 			return ~~(t * 60);
 		}
 	}
 
-	public findMostRecentMessage(seekTime) {
+	public findMostRecentMessage(seekTime: number) {
 		const { message } = this.props;
 		const { lastMessageIndex, lastSeekTime } = this.state;
 		let mostRecentMessageIndex = null;
 		if (seekTime >= lastSeekTime) {
 			for (let i = lastMessageIndex; i < message.entries.length; ++i) {
 				const msg = message.entries[i];
+				// @ts-ignore
 				if (msg && msg.relTime >= seekTime) {
 					mostRecentMessageIndex = i;
 					break;
@@ -63,6 +79,7 @@ export default class MessageBytes extends Component {
 		if (!mostRecentMessageIndex) {
 			// TODO this can be faster with binary search, not currently a bottleneck though.
 
+			// @ts-ignore
 			mostRecentMessageIndex = message.entries.findIndex((e) => e.relTime >= seekTime);
 		}
 
@@ -75,6 +92,7 @@ export default class MessageBytes extends Component {
 		}
 	}
 
+	// @ts-ignore
 	public updateCanvas(props) {
 		const { message, live, seekTime } = props;
 		if (!this.canvas || message.entries.length === 0) {
@@ -93,6 +111,10 @@ export default class MessageBytes extends Component {
 		const ctx = this.canvas.getContext(`2d`);
 		// ctx.clearRect(0, 0, 180, 15);
 
+		if (!ctx) {
+			return;
+		}
+
 		for (let i = 0; i < message.byteStateChangeCounts.length; ++i) {
 			const hexData = mostRecentMsg.hexData.substr(i * 2, 2);
 			ctx.fillStyle = message.byteColors[i];
@@ -109,7 +131,7 @@ export default class MessageBytes extends Component {
 		}
 	}
 
-	public onVisibilityChange(isVisible) {
+	public onVisibilityChange(isVisible: IState["isVisible"]) {
 		if (isVisible !== this.state.isVisible) {
 			this.setState({ isVisible });
 		}
@@ -124,7 +146,9 @@ export default class MessageBytes extends Component {
 		this.canvas.width = window.devicePixelRatio * 160;
 		this.canvas.height = window.devicePixelRatio * 15;
 		const ctx = this.canvas.getContext(`2d`);
-		ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+		if (ctx) {
+			ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+		}
 	}
 
 	public render() {
