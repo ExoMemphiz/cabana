@@ -81,6 +81,7 @@ export default class CanExplorer extends Component {
       attemptingPandaConnection: false,
       pandaNoDeviceSelected: false,
       loadingCSVData: false,
+      pauseCSV: true,
       live: false,
       isGithubAuthenticated:
         props.githubAuthToken !== null && props.githubAuthToken !== undefined,
@@ -585,10 +586,12 @@ export default class CanExplorer extends Component {
   }
 
   addAndRehydrateMessages(newMessages, options) {
+    /*
     console.log(
       `[CanExplorer::addAndRehydrateMessages], newMessages: `,
       JSON.stringify(newMessages)
     );
+    */
 
     // Adds new message entries to messages state
     // and "rehydrates" ES6 classes (message frame)
@@ -1171,10 +1174,12 @@ export default class CanExplorer extends Component {
   }
 
   processStreamedCanMessages(newCanMessages) {
+    /*
     console.log(
       `[CanExplorer::processStreamedCanMessages] newCanMessages: `,
       JSON.stringify(newCanMessages)
     );
+    */
     const { dbcText } = this.state;
     const {
       firstCanTime,
@@ -1196,15 +1201,19 @@ export default class CanExplorer extends Component {
       {}
     );
 
-    this.canStreamerWorker.postMessage({
-      newCanMessages,
-      prevMsgEntries,
-      firstCanTime,
-      dbcText,
-      lastBusTime,
-      byteStateChangeCountsByMessage,
-      maxByteStateChangeCount
-    });
+    if (this.canStreamerWorker) {
+      this.canStreamerWorker.postMessage({
+        newCanMessages,
+        prevMsgEntries,
+        firstCanTime,
+        dbcText,
+        lastBusTime,
+        byteStateChangeCountsByMessage,
+        maxByteStateChangeCount
+      });
+    } else {
+      console.log(`Hmmm... No Can Streamer Worker...`);
+    }
   }
 
   firstEntryIndexInsideStreamingWindow(entries) {
@@ -1228,7 +1237,9 @@ export default class CanExplorer extends Component {
       if (message.entries.length < 2) {
         continue;
       }
-
+      if (!message.entries[message.entries.length - 1]) {
+        return;
+      }
       const lastEntryTime = message.entries[message.entries.length - 1].relTime;
       const entrySpan = lastEntryTime - message.entries[0].relTime;
       if (entrySpan > STREAMING_WINDOW) {
@@ -1244,6 +1255,11 @@ export default class CanExplorer extends Component {
   }
 
   _onStreamedCanMessagesProcessed(data) {
+    if (!data) {
+      console.log(`[CanExplorer::_onStreamedCanMessagesProcessed] No Data`);
+      return;
+    }
+
     let {
       newMessages,
       seekTime,
@@ -1259,24 +1275,28 @@ export default class CanExplorer extends Component {
     let messages = this.addAndRehydrateMessages(newMessages);
     messages = this.enforceStreamingMessageWindow(messages);
     let { seekIndex, selectedMessages } = this.state;
-    if (
-      selectedMessages.length > 0 &&
-      messages[selectedMessages[0]] !== undefined
-    ) {
+    if (selectedMessages.length > 0 && messages[selectedMessages[0]]) {
       seekIndex = Math.max(0, messages[selectedMessages[0]].entries.length - 1);
     }
-    this.setState({
-      messages,
-      seekTime,
-      seekIndex,
-      lastBusTime,
-      firstCanTime,
-      maxByteStateChangeCount
-    });
+
+    if (messages) {
+      this.setState({
+        messages,
+        seekTime,
+        seekIndex,
+        lastBusTime,
+        firstCanTime,
+        maxByteStateChangeCount
+      });
+    }
   }
 
   onStreamedCanMessagesProcessed(e) {
-    this._onStreamedCanMessagesProcessed(e.data);
+    if (e && e.data) {
+      this._onStreamedCanMessagesProcessed(e.data);
+    } else {
+      console.log(`either e is null, or e.data is null`);
+    }
   }
 
   async handleLoadedCSV(file) {
@@ -1286,6 +1306,8 @@ export default class CanExplorer extends Component {
       live: false,
       showOnboarding: false
     });
+    this.canStreamerWorker = new CanStreamerWorker();
+    this.canStreamerWorker.onmessage = this.onStreamedCanMessagesProcessed;
     const persistedDbc = fetchPersistedDbc("live");
     if (persistedDbc) {
       const { dbc, dbcText } = persistedDbc;
@@ -1304,27 +1326,71 @@ export default class CanExplorer extends Component {
       }
       let lastTime = -1;
       let startFrame = -1;
+      let newCanMessages = {
+        time: 0,
+        canMessages: []
+      };
       for (let i = 1; i < lines.length; i++) {
-        const lineParts = lines[i].split(",");
-        const message = {
-          time: Math.trunc(parseFloat(lineParts[0])),
-          addr: lineParts[1],
-          bus: lineParts[2],
-          data: lineParts[3]
-        };
-        if (startFrame === -1) {
-          startFrame = -message.time;
+        while (this.state.pauseCSV) {
+          await this.sleep(5);
         }
-        message.frame = startFrame + message.time;
-        if (lastTime !== -1 && lastTime !== message.time) {
-          await this.sleep(message.time - lastTime);
+        const lineParts = lines[i].split(",");
+        function parseLineData(lineData) {
+          if (!lineData) {
+            return [];
+          }
+          let bytes = [];
+          // console.log(`Parsed line: ${lineData} to: ${lineDataParsed}`);
+          for (let i = 0; i < lineData.length - 1; i += 2) {
+            const substring = lineData.substring(i, i + 2);
+            /*
+            console.log(
+              `Looking at substring: ${substring}, hexed: ${parseInt(
+                substring,
+                16
+              ).toString(16)}, dec: ${parseInt(substring, 16)}`
+            );
+            */
+            bytes.push(parseInt(substring, 16));
+          }
+          return bytes;
+        }
+        let bytes = parseLineData(lineParts[3]);
+        /*
+        console.log(
+          `[CanExplorer::parseLineData] lineData: ${
+            lineParts[3]
+          }, bytes: ${bytes}, Uint8Array: ${new Uint8Array(bytes)}`
+        );
+        */
+        // debugger;
+        const message = {
+          busTime: Math.trunc(parseFloat(lineParts[0])),
+          address: lineParts[1],
+          bus: lineParts[2],
+          data: new Uint8Array(bytes)
+        };
+
+        if (startFrame === -1) {
+          startFrame = -message.busTime;
+        }
+        message.frame = startFrame + message.busTime;
+        if (lastTime !== -1 && lastTime !== message.busTime) {
+          newCanMessages.time = message.busTime;
+          this.processStreamedCanMessages([newCanMessages]);
+          await this.sleep((message.busTime - lastTime) * 1000);
+          newCanMessages.time = 0;
+          newCanMessages.canMessages = [];
           // console.log(`Should be waiting, but we don't do that ;)`);
         }
-        lastTime = message.time;
+        lastTime = message.busTime;
+        newCanMessages.canMessages.push(message);
         // console.log(`Current message: `, parts);
         // TODO: this.addAndRehydrateMessages(message);
+        // console.log(`Finished line: ${i}/${lines.length - 1}`);
       }
       console.log(`Done :)`);
+      await this.sleep(10000);
     };
     fileReader.readAsText(file);
   }
@@ -1442,6 +1508,12 @@ export default class CanExplorer extends Component {
             isDemo={this.props.isDemo}
             live={live}
             saveLog={debounce(this.downloadLogAsCSV, 500)}
+            pauseCSV={this.state.pauseCSV}
+            togglePauseCSV={() =>
+              this.setState({
+                pauseCSV: !this.state.pauseCSV
+              })
+            }
           />
           {route || live ? (
             <Explorer
