@@ -402,6 +402,44 @@ export default class Meta extends Component {
               </button>
             </div>
           </div>
+          {this.props.loadingCSVData ? (
+            <div className={`cabana-meta-header-actions2  ${this.saveable()}`}>
+              <div className="cabana-meta-header-action">
+                <button onClick={this.props.resetMessages}>Reset Replay</button>
+              </div>
+              {this.saveable() && (
+                <div className="cabana-meta-header-action">
+                  <button onClick={this.props.saveLog}>Save Log</button>
+                </div>
+              )}
+              {this.props.shareUrl ? (
+                <div
+                  className="cabana-meta-header-action special-wide"
+                  data-clipboard-text={this.props.shareUrl}
+                  data-clipboard-action="copy"
+                  ref={ref => (ref ? new Clipboard(ref) : null)}
+                >
+                  <a
+                    className="button"
+                    href={this.props.shareUrl}
+                    onClick={e => e.preventDefault()}
+                  >
+                    Copy Share Link
+                  </a>
+                </div>
+              ) : null}
+              <div className="cabana-meta-header-action">
+                <button onClick={this.props.showSaveDbc}>Save DBC</button>
+              </div>
+              <div className="cabana-meta-header-action">
+                <button onClick={this.props.togglePauseCSV}>
+                  {this.props.pauseCSV
+                    ? "Resume CSV Replay"
+                    : "Pause CSV Replay"}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
         <div className="cabana-meta-messages">
           <div className="cabana-meta-messages-header">

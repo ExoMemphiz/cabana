@@ -86,7 +86,9 @@ export default class CanExplorer extends Component {
       isGithubAuthenticated:
         props.githubAuthToken !== null && props.githubAuthToken !== undefined,
       shareUrl: null,
-      logUrls: null
+      logUrls: null,
+      fileReaderCSV: null,
+      fileCSV: null
     };
 
     this.openDbcClient = new OpenDbc(props.githubAuthToken);
@@ -1202,6 +1204,16 @@ export default class CanExplorer extends Component {
     );
 
     if (this.canStreamerWorker) {
+      if (newCanMessages) {
+        if (newCanMessages[0].canMessages) {
+          console.log(
+            `newCanMessages.length: `,
+            newCanMessages[0].canMessages.length
+          );
+        } else {
+          console.log(`newCanMessages: ${JSON.stringify(newCanMessages)}`);
+        }
+      }
       this.canStreamerWorker.postMessage({
         newCanMessages,
         prevMsgEntries,
@@ -1211,8 +1223,6 @@ export default class CanExplorer extends Component {
         byteStateChangeCountsByMessage,
         maxByteStateChangeCount
       });
-    } else {
-      console.log(`Hmmm... No Can Streamer Worker...`);
     }
   }
 
@@ -1275,7 +1285,12 @@ export default class CanExplorer extends Component {
     let messages = this.addAndRehydrateMessages(newMessages);
     messages = this.enforceStreamingMessageWindow(messages);
     let { seekIndex, selectedMessages } = this.state;
-    if (selectedMessages.length > 0 && messages[selectedMessages[0]]) {
+    if (
+      selectedMessages.length > 0 &&
+      messages &&
+      selectedMessages[0] &&
+      messages[selectedMessages[0]]
+    ) {
       seekIndex = Math.max(0, messages[selectedMessages[0]].entries.length - 1);
     }
 
@@ -1299,101 +1314,104 @@ export default class CanExplorer extends Component {
     }
   }
 
-  async handleLoadedCSV(file) {
-    this.setState({
-      attemptingPandaConnection: false,
-      loadingCSVData: true,
-      live: false,
-      showOnboarding: false
-    });
-    this.canStreamerWorker = new CanStreamerWorker();
-    this.canStreamerWorker.onmessage = this.onStreamedCanMessagesProcessed;
-    const persistedDbc = fetchPersistedDbc("live");
-    if (persistedDbc) {
-      const { dbc, dbcText } = persistedDbc;
-      this.setState({ dbc, dbcText });
-    }
-    const fileReader = new FileReader();
-    fileReader.onload = async e => {
-      const lines = e.target.result.split("\n");
-      if (lines[0] !== "time,addr,bus,data") {
-        return this.setState({
-          attemptingPandaConnection: false,
-          loadingCSVData: false,
-          live: false,
-          showOnboarding: true
-        });
-      }
-      let lastTime = -1;
-      let startFrame = -1;
-      let newCanMessages = {
-        time: 0,
-        canMessages: []
-      };
-      for (let i = 1; i < lines.length; i++) {
-        while (this.state.pauseCSV) {
-          await this.sleep(5);
-        }
-        const lineParts = lines[i].split(",");
-        function parseLineData(lineData) {
-          if (!lineData) {
-            return [];
+  async handleLoadedCSV(file, fetchDbc = true) {
+    this.setState(
+      {
+        attemptingPandaConnection: false,
+        loadingCSVData: true,
+        live: true,
+        showOnboarding: false,
+        showLoadDbc: fetchDbc,
+        fileReaderCSV: new FileReader(),
+        fileCSV: file
+      },
+      () => {
+        this.canStreamerWorker = new CanStreamerWorker();
+        this.canStreamerWorker.onmessage = this.onStreamedCanMessagesProcessed;
+        if (fetchDbc) {
+          console.log(`Fetching DBC: ${fetchDbc}`);
+          const persistedDbc = fetchPersistedDbc("live");
+          if (persistedDbc) {
+            const { dbc, dbcText } = persistedDbc;
+            this.setState({ dbc, dbcText });
           }
-          let bytes = [];
-          // console.log(`Parsed line: ${lineData} to: ${lineDataParsed}`);
-          for (let i = 0; i < lineData.length - 1; i += 2) {
-            const substring = lineData.substring(i, i + 2);
-            /*
-            console.log(
-              `Looking at substring: ${substring}, hexed: ${parseInt(
-                substring,
-                16
-              ).toString(16)}, dec: ${parseInt(substring, 16)}`
-            );
-            */
-            bytes.push(parseInt(substring, 16));
-          }
-          return bytes;
         }
-        let bytes = parseLineData(lineParts[3]);
-        /*
-        console.log(
-          `[CanExplorer::parseLineData] lineData: ${
-            lineParts[3]
-          }, bytes: ${bytes}, Uint8Array: ${new Uint8Array(bytes)}`
-        );
-        */
-        // debugger;
-        const message = {
-          busTime: Math.trunc(parseFloat(lineParts[0])),
-          address: lineParts[1],
-          bus: lineParts[2],
-          data: new Uint8Array(bytes)
+        this.state.fileReaderCSV.onload = async e => {
+          const lines = e.target.result.split("\n");
+          if (lines[0] !== "time,addr,bus,data") {
+            return this.setState({
+              attemptingPandaConnection: false,
+              loadingCSVData: false,
+              live: false,
+              showOnboarding: true,
+              showLoadDbc: false
+            });
+          }
+          this.streamCSVMessages(lines);
+          console.log(`Done :)`);
+          await this.sleep(10000);
         };
-
-        if (startFrame === -1) {
-          startFrame = -message.busTime;
-        }
-        message.frame = startFrame + message.busTime;
-        if (lastTime !== -1 && lastTime !== message.busTime) {
-          newCanMessages.time = message.busTime;
-          this.processStreamedCanMessages([newCanMessages]);
-          await this.sleep((message.busTime - lastTime) * 1000);
-          newCanMessages.time = 0;
-          newCanMessages.canMessages = [];
-          // console.log(`Should be waiting, but we don't do that ;)`);
-        }
-        lastTime = message.busTime;
-        newCanMessages.canMessages.push(message);
-        // console.log(`Current message: `, parts);
-        // TODO: this.addAndRehydrateMessages(message);
-        // console.log(`Finished line: ${i}/${lines.length - 1}`);
+        this.state.fileReaderCSV.readAsText(file);
       }
-      console.log(`Done :)`);
-      await this.sleep(10000);
-    };
-    fileReader.readAsText(file);
+    );
   }
+
+  streamCSVMessages = async lines => {
+    let lastTime = -1;
+    let startFrame = -1;
+    let newCanMessages = {
+      time: 0,
+      canMessages: []
+    };
+    let abort = false;
+    this.state.fileReaderCSV.onabort = () => {
+      abort = true;
+    };
+    for (let i = 1; i < lines.length; i++) {
+      while (this.state.pauseCSV) {
+        if (abort) {
+          return;
+        }
+        await this.sleep(5);
+      }
+      if (abort) {
+        return;
+      }
+      const lineParts = lines[i].split(",");
+      function parseLineData(lineData) {
+        if (!lineData) {
+          return [];
+        }
+        let bytes = [];
+        for (let i = 0; i < lineData.length - 1; i += 2) {
+          const substring = lineData.substring(i, i + 2);
+          bytes.push(parseInt(substring, 16));
+        }
+        return bytes;
+      }
+      let bytes = parseLineData(lineParts[3]);
+      const message = {
+        busTime: Math.trunc(parseFloat(lineParts[0])),
+        address: lineParts[1],
+        bus: lineParts[2],
+        data: new Uint8Array(bytes)
+      };
+
+      if (startFrame === -1) {
+        startFrame = -message.busTime;
+      }
+      message.frame = startFrame + message.busTime;
+      if (lastTime !== -1 && lastTime !== message.busTime) {
+        newCanMessages.time = message.busTime;
+        this.processStreamedCanMessages([newCanMessages]);
+        await this.sleep((message.busTime - lastTime) * 1);
+        newCanMessages.time = 0;
+        newCanMessages.canMessages = [];
+      }
+      lastTime = message.busTime;
+      newCanMessages.canMessages.push(message);
+    }
+  };
 
   sleep(milli) {
     return new Promise(resolve => setTimeout(resolve, milli));
@@ -1514,6 +1532,18 @@ export default class CanExplorer extends Component {
                 pauseCSV: !this.state.pauseCSV
               })
             }
+            loadingCSVData={this.state.loadingCSVData}
+            resetMessages={() => {
+              this.setState({
+                messages: {}
+              });
+              try {
+                this.state.fileReaderCSV.abort();
+                this.handleLoadedCSV(this.state.fileCSV, false);
+              } catch (err) {
+                // Handle error?
+              }
+            }}
           />
           {route || live ? (
             <Explorer
